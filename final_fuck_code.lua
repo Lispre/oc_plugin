@@ -113,7 +113,7 @@ function process_node_attributes(node_attributes)
     else
         local node_attributes_str = ''
         for k, v in pairs(node_attributes) do
-            node_attributes_str = node_attributes_str .. '<attr name=\'value\'' .. ' type=\'' .. v["type"] .. '\'>' .. v["value"] .. '</attr>'
+            node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. ' type=\'' .. v["type"] .. '\'>' .. v["value"] .. '</attr>'
         end
 
         return node_attributes_str
@@ -129,34 +129,7 @@ function process_node_pins(pins)
         else
             local pin_node_properties = v["pin_node"]["properties"]
             local pin_node_attributes = v["pin_node"]["attributes"]
-         --    if type(pin_node_attributes["value"]) == "boolean" then
-         --    	if pin_node_attributes["value"] then
-         --    		pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. pin_node_properties["type"] ..'\'>' .. '<attr name=\'value\'' .. ' type=\'' .. pin_node_attributes["type"] .. '\'>' .. '1' .. '</attr></node></pin>'
-         --    	else
-         --    		pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. pin_node_properties["type"] ..'\'>' .. '<attr name=\'value\'' .. ' type=\'' .. pin_node_attributes["type"] .. '\'>' .. '0' .. '</attr></node></pin>'
-         --    	end
-        	-- elseif type(pin_node_attributes["value"]) == "table" then
-        	-- 	local table_str = ''
-        	-- 	for k, v in pairs(pin_node_attributes["value"]) do
-        	-- 		if type(v) == "boolean" then
-        	-- 			if v then
-        	-- 				table_str = table_str .. '1 '
-        	-- 			else
-        	-- 				table_str = table_str .. '0 '
-        	-- 			end
-        	-- 		else
-        	-- 			table_str = table_str .. v .. ' '
-        	-- 		end
-        	-- 	end
-         --   		pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. pin_node_properties["type"] ..'\'>' .. '<attr name=\'value\'' .. ' type=\'' .. pin_node_attributes["type"] .. '\'>' .. table_str .. '</attr></node></pin>'
-         -- 	else
-         --    end
-         	print("1", pin_properties['name'])
-         	print("2", pin_node_properties["id"])
-         	print("3", pin_node_properties["type"])
-         	print("4", pin_node_attributes["type"])
-         	print("5", pin_node_attributes["value"])
-      		pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. value_flat(pin_node_properties["type"]) ..'\'>' .. '<attr name=\'value\'' .. ' type=\'' .. value_flat(pin_node_attributes["type"]) .. '\'>' .. value_flat(pin_node_attributes["value"]) .. '</attr></node></pin>'
+      		pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. value_flat(pin_node_properties["type"]) ..'\'>' .. '<attr name=\'' .. pin_node_attributes["name"] .. ' type=\'' .. value_flat(pin_node_attributes["type"]) .. '\'>' .. value_flat(pin_node_attributes["value"]) .. '</attr></node></pin>'
         end
     end
     return pins_str
@@ -313,25 +286,36 @@ function get_pin_info(node, pin_name)
 			-- print(pin_count)
 			local pin_pin_nodes = {}
 			if pin_pin_count == 0 then
-				return {properties = {name = pin_name},
+				-- pin连接的值结点没有pin，那么就终止
+				local pin = {properties = {name = pin_name},
 					attributes = {},
-					pin_node = pin_node,
+					pin_node = pin_node
 				}
+				return pin
 			else
+				-- pin连接的值结点有pin，那么就接着调用
+				local pin = {}
+				local pin_pin_nodes = {}
 				for u = 1, pin_count, 1 do
 					local pin_pin_name = connected_node:getPinInfoIx(u)["name"]
 					print("pin_pin_name is: ", pin_pin_name)
 					print("connect_node name is: ", connected_node:getProperties()["name"])
 					pin_pin_nodes[u] = get_pin_info(connected_node, pin_pin_name)
 				end
+				-- pin = {properties = {name = pin_name},
+				-- 	attributes = {},
+				-- 	pin_node = pin_pin_nodes
+				-- }
+
 				return {properties = {name = pin_name},
 					attributes = {},
 					pin_node = {
 						properties = pin_node["properties"],
 						attributes = pin_node["attributes"],
-						pin_node = pin_pin_nodes
+						pin = pin_pin_nodes
 					}
 				}
+				-- return pin
 			end
 		end
 	end
