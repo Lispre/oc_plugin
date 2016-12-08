@@ -113,24 +113,67 @@ function process_node_attributes(node_attributes)
     else
         local node_attributes_str = ''
         for k, v in pairs(node_attributes) do
-            node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. ' type=\'' .. v["type"] .. '\'>' .. v["value"] .. '</attr>'
+            node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. ' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
         end
 
         return node_attributes_str
     end
 end
 
+function pin_node2str(pin_node)
+	local pin_node_str = ''
+	print(pin_node["properties"])
+	local pin_node_properties = pin_node["properties"]
+	local pin_node_attributes = pin_node["attributes"]
+	pin_node_str = pin_node_str .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. pin_node_properties["type"] .. '\'>'
+	for k, v in pairs(pin_node_attributes) do
+		pin_node_str = pin_node_str .. '<attr name=\'' .. v["name"] .. '\' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
+	end
+	if next(pin_node["pin"]) == nil then
+		return pin_node_str .. '</node>'
+	else
+		for h, j in pairs(pin_node["pin"]) do
+			print("h is: ", h	)
+			local pin_pin_prop = j["properties"];
+			local pin_pin_attr = j["attributes"];
+			local pin_pin_node = j["pin_node"]
+			local pin_pin_node_prop = pin_pin_node["properties"]
+			local pin_pin_node_attr = pin_pin_node["attributes"]
+			pin_node_str = pin_node_str .. '<pin name=\'' .. pin_pin_prop["name"] .. '\'>'
+			for x, y in pairs(pin_pin_node_attr) do
+				pin_node_str = pin_node_str .. '<attr name=\'' .. y["name"] .. '\' type=\'' .. y["type"] .. '\'>' .. value_flat(y["value"]) .. '</attr>'
+			end
+			pin_node_str = pin_node_str .. pin_node2str(pin_pin_node) .. '</pin>'
+		end
+	end
+	return pin_node_str .. '</node>'
+end	
+
+function pin2str(pin)
+    local pin_properties = pin["properties"];
+    local pin_attributes = pin["attributes"];
+
+    local pin_str = ''
+    if pin_properties["connect"] ~= nil then
+        pin_str = pin_str .. '<pin name=\'' .. pin_properties["name"] .. '\' connect=\'' .. pin_properties["connect"] .. '\'/>'
+        return pin_str
+    else
+    	return pin_str .. '<pin name=\'' .. pin_properties["name"] .. '\'>' .. pin_node2str(pin["pin_node"]) .. '</pin>'
+    end
+end
+
 function process_node_pins(pins)
     local pins_str = ''
     for k, v in pairs(pins) do
-        local pin_properties = v["properties"]
-        if pin_properties["connect"] ~= nil then
-            pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\' connect=\'' .. pin_properties['connect'] ..'\'/>'
-        else
-            local pin_node_properties = v["pin_node"]["properties"]
-            local pin_node_attributes = v["pin_node"]["attributes"]
-      		pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. value_flat(pin_node_properties["type"]) ..'\'>' .. '<attr name=\'' .. pin_node_attributes["name"] .. ' type=\'' .. value_flat(pin_node_attributes["type"]) .. '\'>' .. value_flat(pin_node_attributes["value"]) .. '</attr></node></pin>'
-        end
+        -- local pin_properties = v["properties"]
+        -- if pin_properties["connect"] ~= nil then
+        --     pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\' connect=\'' .. pin_properties['connect'] ..'\'/>'
+        -- else
+        --     local pin_node_properties = v["pin_node"]["properties"]
+        --     local pin_node_attributes = v["pin_node"]["attributes"]
+      		-- pins_str = pins_str .. '<pin name=\'' .. pin_properties['name'] .. '\'>' .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. value_flat(pin_node_properties["type"]) ..'\'>' .. '<attr name=\'' .. pin_node_attributes["name"] .. ' type=\'' .. value_flat(pin_node_attributes["type"]) .. '\'>' .. value_flat(pin_node_attributes["value"]) .. '</attr></node></pin>'
+        -- end
+        pins_str = pins_str .. pin2str(v)
     end
     return pins_str
 end
@@ -299,6 +342,7 @@ function get_pin_info(node, pin_name)
 				for u = 1, pin_count, 1 do
 					local pin_pin_name = connected_node:getPinInfoIx(u)["name"]
 					print("pin_pin_name is: ", pin_pin_name)
+					print("pin_pin_name is: ", pin_pin_name)
 					print("connect_node name is: ", connected_node:getProperties()["name"])
 					pin_pin_nodes[u] = get_pin_info(connected_node, pin_pin_name)
 				end
@@ -333,8 +377,8 @@ for k, v in pairs(all_single_nodes) do
 	end
 end
 
-print_r(inner_data_structure)
--- print(luatab2ocs(inner_data_structure))
+--print_r(inner_data_structure)
+print(luatab2ocs(inner_data_structure))
 
 --获取根结点
 --获取根结点的properties
