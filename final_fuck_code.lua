@@ -27,6 +27,7 @@ function deep_traverse(table_name)
 end
 
 function print_r ( t )  
+	print("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
     local print_r_cache={}
     local function sub_print_r(t,indent)
         if (print_r_cache[tostring(t)]) then
@@ -104,6 +105,7 @@ end
 
 function process_node_properties(node_properties)
     local str = '<node id=\'' .. node_properties["id"] .. '\' type=\'' .. node_properties["type"] .. '\' name=\'' .. node_properties["name"] .. '\' position=\'' .. node_properties["position"][1] .. ' ' .. node_properties["position"][2] .. '\'>'
+    print("process_node_properties: ", str)
     return str
 end
 
@@ -113,9 +115,10 @@ function process_node_attributes(node_attributes)
     else
         local node_attributes_str = ''
         for k, v in pairs(node_attributes) do
-            node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. ' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
+            node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. '\' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
         end
 
+        print("node_attributes_str: ", node_attributes_str)
         return node_attributes_str
     end
 end
@@ -257,40 +260,6 @@ function insert_pin(node, z, pin)
 		end
 	end
 end
---获取场景图
-scene_graph = octane.project.getSceneGraph()
---从场景图中获取总的外部结点
-----拿到这些结点的名称(因为目前没有找到拿到结点的ID方法, 所以ID要自己生成)
-----生成这些结点的表示数据, 存入数据结构
-all_single_nodes = octane.nodegraph.getOwnedItems(scene_graph)
-for k, v in pairs(all_single_nodes) do
-	local single_node_properties = v:getProperties()
-	local node_prop_id = initial_node_id + 1;
-	initial_node_id = node_prop_id
-	local node_prop_name  = single_node_properties["name"]
-	local node_prop_type = single_node_properties["type"]
-	local node_prop_position = single_node_properties["position"]
-	local single_node_attribte_counter = v:getAttributeCount()
-	local node_attr_table = {}
-	if single_node_attribte_counter ~= 0 then
-		for i = 1, single_node_attribte_counter, 1 do
-			local node_attribute_info = v:getAttributeInfoIx(i)
-			-- node_attr_type = node_attribute_info["type"]
-			-- node_attri_value = v:getAttributeIx(i)
-			node_attr_table[i] = {
-				name = octane.apiinfo.getAttributeName(node_attribute_info["id"]),
-				type = node_attribute_info["type"],
-				value = v:getAttributeIx(i)
-			}
-		end
-	else
-		--这里表示node没有attribute的情况, 什么也不做
-	end
-	local single_node = register_node_info(node_prop_id, node_prop_name, node_prop_type, node_prop_position, node_attr_table)
-	local node_index = initial_node_counter + 1
-	initial_node_counter = node_index
-	inner_data_structure["graph"]["nodes"][node_index] = single_node;
-end
 
 --返回一个pin的信息的表
 function get_pin_info(node, pin_name)
@@ -365,25 +334,85 @@ function get_pin_info(node, pin_name)
 	end
 end
 
-for k, v in pairs(all_single_nodes) do
-	local single_node_pin_counter = v:getPinCount()
-	for k = 1, single_node_pin_counter, 1 do
-		local single_node_pin_info = v:getPinInfoIx(k)
-		local single_node_pin_name = single_node_pin_info["name"]
-		-- print("single_node_pin_name is: ", single_node_pin_name)
-		local pin_deep_info = get_pin_info(v, single_node_pin_name)
-		-- print_r(pin_deep_info)
-		insert_pin(v, k, pin_deep_info)
+--获取场景图
+function get_all(root_node_name)
+	scene_graph = octane.project.getSceneGraph()
+	--从场景图中获取总的外部结点
+	----拿到这些结点的名称(因为目前没有找到拿到结点的ID方法, 所以ID要自己生成)
+	----生成这些结点的表示数据, 存入数据结构
+	all_single_nodes = octane.nodegraph.getOwnedItems(scene_graph)
+	for k, v in pairs(all_single_nodes) do
+		local single_node_properties = v:getProperties()
+		local node_prop_id = initial_node_id + 1;
+		initial_node_id = node_prop_id
+		local node_prop_name = single_node_properties["name"]
+		if node_prop_name ~= root_node_name then
+			node_prop_name  = single_node_properties["name"] .. '-' .. k
+			v:updateProperties({name = node_prop_name})
+		end
+		local node_prop_type = single_node_properties["type"]
+		local node_prop_position = single_node_properties["position"]
+		local single_node_attribte_counter = v:getAttributeCount()
+		local node_attr_table = {}
+		local node_type_name = octane.apiinfo.getNodeTypeName(single_node_properties["type"])
+		if single_node_attribte_counter ~= 0 then
+			if (node_type_name == 'NT_TEX_IMAGE') then
+				local attribute_count = v:getAttributeCount()
+				for z = 1, attribute_count, 1 do
+					local attribute_info = v:getAttributeInfoIx(z)
+					if octane.apiinfo.getAttributeName(attribute_info['id']) == 'filename' then
+						local file_name = v:getAttributeIx(z)
+						node_attr_table[z] = {
+							name = "filename",
+							type = attribute_info["type"],
+							value = file_name
+						}
+					end
+				end
+			else
+				for i = 1, single_node_attribte_counter, 1 do
+					local node_attribute_info = v:getAttributeInfoIx(i)
+					-- node_attr_type = node_attribute_info["type"]
+					-- node_attri_value = v:getAttributeIx(i)
+					node_attr_table[i] = {
+						name = octane.apiinfo.getAttributeName(node_attribute_info["id"]),
+						type = node_attribute_info["type"],
+						value = v:getAttributeIx(i)
+					}
+				end
+			end
+		else
+			--这里表示node没有attribute的情况, 什么也不做
+		end
+		print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+		print("node_prop_id:", node_prop_id)
+		print("node_prop_name:", node_prop_name)
+		print("node_prop_prop_type:", node_prop_type)
+		print("node_prop_position:", node_prop_position)
+		print("node_attr_table:", node_attr_table)
+		print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+		local single_node = register_node_info(node_prop_id, node_prop_name, node_prop_type, node_prop_position, node_attr_table)
+		local node_index = initial_node_counter + 1
+		initial_node_counter = node_index
+		inner_data_structure["graph"]["nodes"][node_index] = single_node;
+	end
+
+	for k, v in pairs(all_single_nodes) do
+		local single_node_pin_counter = v:getPinCount()
+		for k = 1, single_node_pin_counter, 1 do
+			local single_node_pin_info = v:getPinInfoIx(k)
+			local single_node_pin_name = single_node_pin_info["name"]
+			-- print("single_node_pin_name is: ", single_node_pin_name)
+			local pin_deep_info = get_pin_info(v, single_node_pin_name)
+			-- print_r(pin_deep_info)
+			insert_pin(v, k, pin_deep_info)
+		end
 	end
 end
 
 --print_r(inner_data_structure)
+get_all('Specular material')
+-- print_r(inner_data_structure)
 print(luatab2ocs(inner_data_structure))
-
---获取根结点
---获取根结点的properties
---获取根结点的attributes
---获取根结点的pin数据
-----获取每一个pin的信息, 生成数据, 存入数据结构
-
---查看所有独立结点, 将其与连接的PIN建立连接, 并将连接信息写入数据结构
+-- print(type((inner_data_structure["graph"]["node"])))
+-- print_r(inner_data_structure)
