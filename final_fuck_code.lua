@@ -3,6 +3,16 @@ function log_type(item)
 	print("Type of item is: ", type(item))
 end
 
+log_file = "lua_log.txt"
+
+function file_log(content)
+	--file = io.open(log_file, "a")
+	--file:write(content)
+    --file:write("\n")
+    --io:flush()
+    --file:close()
+end
+
 function traverse(table_item)
 	for k, v in pairs(table_item) do
 		print(k, "...................", v)
@@ -27,7 +37,6 @@ function deep_traverse(table_name)
 end
 
 function print_r ( t )  
-	print("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
     local print_r_cache={}
     local function sub_print_r(t,indent)
         if (print_r_cache[tostring(t)]) then
@@ -63,7 +72,9 @@ end
 
 
 function value_flat(value)
-	if type(value) == "boolean" then
+	if type(value) == 'nil' then
+		return '0'
+	elseif type(value) == "boolean" then
 		if value then
 			return '1'
 		else
@@ -115,7 +126,10 @@ function process_node_attributes(node_attributes)
     else
         local node_attributes_str = ''
         for k, v in pairs(node_attributes) do
-            node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. '\' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
+        	-- print_r(v)
+        	if next(v) ~= nil then
+            	node_attributes_str = node_attributes_str .. '<attr name=\'' .. v["name"] .. '\' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
+        	end
         end
 
         print("node_attributes_str: ", node_attributes_str)
@@ -143,9 +157,9 @@ function pin_node2str(pin_node)
 			local pin_pin_node_prop = pin_pin_node["properties"]
 			local pin_pin_node_attr = pin_pin_node["attributes"]
 			pin_node_str = pin_node_str .. '<pin name=\'' .. pin_pin_prop["name"] .. '\'>'
-			for x, y in pairs(pin_pin_node_attr) do
-				pin_node_str = pin_node_str .. '<attr name=\'' .. y["name"] .. '\' type=\'' .. y["type"] .. '\'>' .. value_flat(y["value"]) .. '</attr>'
-			end
+			-- for x, y in pairs(pin_pin_node_attr) do
+			-- 	pin_node_str = pin_node_str .. '<attr name=\'' .. y["name"] .. '\' type=\'' .. y["type"] .. '\'>' .. value_flat(y["value"]) .. '</attr>'
+			-- end
 			pin_node_str = pin_node_str .. pin_node2str(pin_pin_node) .. '</pin>'
 		end
 	end
@@ -263,10 +277,12 @@ end
 
 --返回一个pin的信息的表
 function get_pin_info(node, pin_name)
-	print(node:getProperties()["name"], "........", pin_name)
+	file_log(node:getProperties()["name"] .. "........" .. pin_name)
 	local connected_node = node:getConnectedNode(pin_name)
 	if connected_node then
+		file_log("get connected_node")
 		if not connected_node:getProperties().pinOwned then
+			file_log("get an linker node")
 			local linked_node_info = connected_node:getProperties()
 			local pin = {properties = {name = pin_name, connect = tostring(get_node_id_by_name(linked_node_info["name"]))},
 				attributes = {},
@@ -274,23 +290,56 @@ function get_pin_info(node, pin_name)
 			}
 			return pin
 		else
+			file_log("get an owned node")
 			local pin_node = {properties = {}, attributes = {}}
 			local owned_node_properties = connected_node:getProperties()
 			pin_node["properties"]["id"] = initial_node_id + 1
 			pin_node["properties"]["name"] = owned_node_properties["name"]
+			file_log("pin_node name is: " .. pin_node["properties"]["name"])
 			pin_node["properties"]["type"] = owned_node_properties["type"]
+			file_log("pin_node type is: " .. pin_node["properties"]["type"])
 			initial_node_id = pin_node["properties"]["id"]
 			local owned_node_attribute_counter = connected_node:getAttributeCount()
-			for l = 1, owned_node_attribute_counter, 1 do
+			file_log("pin node's attr count is: " .. owned_node_attribute_counter)
+			if pin_node["properties"]["type"] == 34 then
+				--表示当前结点是一个图片
+				local pic_node_attr_name = "filename"
+				local pic_node_attr_type = "11"
+				local pic_node_attr_value = ""	
 				local_pin_node = {}
-				local attribute_value = connected_node:getAttributeInfoIx(l);
-				local pin_node_attributes_name = octane.apiinfo.getAttributeName(attribute_value["id"])
-				local pin_node_attribute_type = attribute_value["type"]
-				local pin_node_attribute_value = connected_node:getAttributeIx(l)
-				local_pin_node["type"] = pin_node_attribute_type
-				local_pin_node["name"] = pin_node_attributes_name
-				local_pin_node["value"] = pin_node_attribute_value
-				pin_node["attributes"][l] = local_pin_node
+				for l = 1, owned_node_attribute_counter, 1 do
+					local attribute_info = connected_node:getAttributeInfoIx(l);
+					print("value is: ", attribute_value)
+					print("###################################################################")
+					print("###################################################################")
+					-- print_r(attribute_value)
+					local pin_node_attributes_name = octane.apiinfo.getAttributeName(attribute_info["id"])
+					print(pin_node_attributes_name)
+					local pin_node_attribute_type = attribute_info["type"]
+					if pin_node_attributes_name == "filename" then
+						pic_node_attr_value = connected_node:getAttributeIx(l)
+						break
+					end
+				end
+				local_pin_node["type"] = "11"
+				local_pin_node["name"] = "filename"
+				local_pin_node["value"] = pic_node_attr_value
+				pin_node["attributes"][1] = local_pin_node
+			else
+				for l = 1, owned_node_attribute_counter, 1 do
+					local_pin_node = {}
+					local attribute_info = connected_node:getAttributeInfoIx(l);
+					print("value is: ", attribute_value)
+					-- print_r(attribute_value)
+					local pin_node_attributes_name = octane.apiinfo.getAttributeName(attribute_info["id"])
+					print(pin_node_attributes_name)
+					local pin_node_attributes_type = attribute_info["type"]
+					pin_node_attributes_value = connected_node:getAttributeIx(l)
+					local_pin_node["type"] = pin_node_attributes_type
+					local_pin_node["name"] = pin_node_attributes_name
+					local_pin_node["value"] = pin_node_attributes_value
+					pin_node["attributes"][l] = local_pin_node
+				end
 			end
 			--到这里当前被pi拥有的结点的prop和attr都已经得到了
 			--下面开始处理它的pin
@@ -309,6 +358,7 @@ function get_pin_info(node, pin_name)
 				local pin = {}
 				local pin_pin_nodes = {}
 				for u = 1, pin_count, 1 do
+					print("The pin_pin_count is: ", pin_count)
 					local pin_pin_name = connected_node:getPinInfoIx(u)["name"]
 					print("pin_pin_name is: ", pin_pin_name)
 					print("pin_pin_name is: ", pin_pin_name)
@@ -331,11 +381,17 @@ function get_pin_info(node, pin_name)
 				-- return pin
 			end
 		end
+	-- else
+	-- 	return {properties = {name = pin_name},
+	-- 		attributes = {},
+	-- 		pin_node = {}
+	-- 	}
 	end
 end
 
 --获取场景图
 function get_all(root_node_name)
+	file_log("entering ................")
 	scene_graph = octane.project.getSceneGraph()
 	--从场景图中获取总的外部结点
 	----拿到这些结点的名称(因为目前没有找到拿到结点的ID方法, 所以ID要自己生成)
@@ -355,8 +411,10 @@ function get_all(root_node_name)
 		local single_node_attribte_counter = v:getAttributeCount()
 		local node_attr_table = {}
 		local node_type_name = octane.apiinfo.getNodeTypeName(single_node_properties["type"])
+		file_log("zzzzzzzzzzzzzzzzz" .. octane.apiinfo.getNodeTypeName(34))
 		if single_node_attribte_counter ~= 0 then
 			if (node_type_name == 'NT_TEX_IMAGE') then
+				file_log("Found rgb image>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 				local attribute_count = v:getAttributeCount()
 				for z = 1, attribute_count, 1 do
 					local attribute_info = v:getAttributeInfoIx(z)
@@ -372,47 +430,44 @@ function get_all(root_node_name)
 			else
 				for i = 1, single_node_attribte_counter, 1 do
 					local node_attribute_info = v:getAttributeInfoIx(i)
-					-- node_attr_type = node_attribute_info["type"]
-					-- node_attri_value = v:getAttributeIx(i)
-					node_attr_table[i] = {
-						name = octane.apiinfo.getAttributeName(node_attribute_info["id"]),
-						type = node_attribute_info["type"],
-						value = v:getAttributeIx(i)
-					}
+					local node_attribute_value = v:getAttributeIx(i)
+					if type(node_attribute_value) ~= "table" then
+						node_attr_table[i] = {
+							name = octane.apiinfo.getAttributeName(node_attribute_info["id"]),
+							type = node_attribute_info["type"],
+							value = node_attribute_value
+						}
+					end
 				end
 			end
 		else
 			--这里表示node没有attribute的情况, 什么也不做
 		end
-		print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-		print("node_prop_id:", node_prop_id)
-		print("node_prop_name:", node_prop_name)
-		print("node_prop_prop_type:", node_prop_type)
-		print("node_prop_position:", node_prop_position)
-		print("node_attr_table:", node_attr_table)
-		print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 		local single_node = register_node_info(node_prop_id, node_prop_name, node_prop_type, node_prop_position, node_attr_table)
 		local node_index = initial_node_counter + 1
 		initial_node_counter = node_index
 		inner_data_structure["graph"]["nodes"][node_index] = single_node;
 	end
-
+	-- print_r(inner_data_structure)
 	for k, v in pairs(all_single_nodes) do
 		local single_node_pin_counter = v:getPinCount()
 		for k = 1, single_node_pin_counter, 1 do
 			local single_node_pin_info = v:getPinInfoIx(k)
 			local single_node_pin_name = single_node_pin_info["name"]
-			-- print("single_node_pin_name is: ", single_node_pin_name)
+			file_log("=====================" .. single_node_pin_name .. "============================")
 			local pin_deep_info = get_pin_info(v, single_node_pin_name)
+			print("@@@@@@@@@@@@@@@@@@@@@@@@")
 			-- print_r(pin_deep_info)
+			-- print_r(pin_deep_info)
+			-- print(pin_deep_info["pin_node"]["pin"][1]["pin_node"]["pin"][1]["pin_node"]["pin"])
+			print("@@@@@@@@@@@@@@@@@@@@@@@@")
 			insert_pin(v, k, pin_deep_info)
 		end
 	end
 end
 
 --print_r(inner_data_structure)
-get_all('Specular material')
--- print_r(inner_data_structure)
+get_all('0003f432cc7311e49ec700163e021ee1')
 print(luatab2ocs(inner_data_structure))
 -- print(type((inner_data_structure["graph"]["node"])))
 -- print_r(inner_data_structure)
