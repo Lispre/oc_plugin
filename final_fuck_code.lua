@@ -142,7 +142,7 @@ function pin_node2str(pin_node)
 	print(pin_node["properties"])
 	local pin_node_properties = pin_node["properties"]
 	local pin_node_attributes = pin_node["attributes"]
-	pin_node_str = pin_node_str .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. pin_node_properties["type"] .. '\'>'
+	pin_node_str = pin_node_str .. '<node id=\'' .. pin_node_properties["id"] .. '\' type=\'' .. pin_node_properties["type"] .. '\' name=\'' .. pin_node_properties["name"] .. '\'>'
 	for k, v in pairs(pin_node_attributes) do
 		pin_node_str = pin_node_str .. '<attr name=\'' .. v["name"] .. '\' type=\'' .. v["type"] .. '\'>' .. value_flat(v["value"]) .. '</attr>'
 	end
@@ -175,7 +175,11 @@ function pin2str(pin)
         pin_str = pin_str .. '<pin name=\'' .. pin_properties["name"] .. '\' connect=\'' .. pin_properties["connect"] .. '\'/>'
         return pin_str
     else
-    	return pin_str .. '<pin name=\'' .. pin_properties["name"] .. '\'>' .. pin_node2str(pin["pin_node"]) .. '</pin>'
+    	if pin_properties["dynamic"] then
+	    	return pin_str .. '<pin name=\'' .. pin_properties["name"] .. '\' dynamicType=\'' .. pin_properties["type"] .. '\'>' .. pin_node2str(pin["pin_node"]) .. '</pin>'
+	    else
+    		return pin_str .. '<pin name=\'' .. pin_properties["name"] .. '\'>' .. pin_node2str(pin["pin_node"]) .. '</pin>'
+    	end
     end
 end
 
@@ -213,8 +217,8 @@ function luatab2ocs(table_name)
         node_str = process_node(v)
         node_all_str = node_all_str .. node_str
     end
-
-    return '<OCS2 version=\'2250000\'>' .. '<graph id=\'' .. table_name["graph"]["properties"]["id"] .. '\' type=\'' .. table_name["graph"]["properties"]["type"] .. '\' name=\'' .. table_name["graph"]["properties"]["name"] .. '\'>' .. node_all_str .. '</graph>' .. '</OCS2>'
+    local timestmap = os.date("%Y-%m-%d %H:%M:%S")
+    return '<OCS2 version=\'2250000\'' .. ' timestmap= \'' .. timestmap .. '\'>' .. '<graph id=\'' .. table_name["graph"]["properties"]["id"] .. '\' type=\'' .. table_name["graph"]["properties"]["type"] .. '\' name=\'' .. table_name["graph"]["properties"]["name"] .. '\'>' .. node_all_str .. '</graph>' .. '</OCS2>'
 end
 
 function register_node_info(node_prop_id, 
@@ -279,6 +283,14 @@ end
 function get_pin_info(node, pin_name)
 	file_log(node:getProperties()["name"] .. "........" .. pin_name)
 	local connected_node = node:getConnectedNode(pin_name)
+	local pin_info = node:getPinInfo(pin_name)
+	local pin_type = 0
+	local pin_dynamic = false
+	if pin_info["isDynamic"] then
+		pin_dynamic = true
+		pin_type = pin_info["type"]
+	end
+
 	if connected_node then
 		file_log("get connected_node")
 		if not connected_node:getProperties().pinOwned then
@@ -348,7 +360,7 @@ function get_pin_info(node, pin_name)
 			local pin_pin_nodes = {}
 			if pin_pin_count == 0 then
 				-- pin连接的值结点没有pin，那么就终止
-				local pin = {properties = {name = pin_name},
+				local pin = {properties = {name = pin_name, dynamic = pin_dynamic, type = pin_type},
 					attributes = {},
 					pin_node = pin_node
 				}
@@ -370,7 +382,7 @@ function get_pin_info(node, pin_name)
 				-- 	pin_node = pin_pin_nodes
 				-- }
 
-				return {properties = {name = pin_name},
+				return {properties = {name = pin_name, dynamic = pin_dynamic, type = pin_type},
 					attributes = {},
 					pin_node = {
 						properties = pin_node["properties"],
