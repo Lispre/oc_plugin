@@ -114,6 +114,32 @@ function value_flat(value)
 end
 --/utils
 
+function change_file_path(source_path)
+	local maps_folder = octane.file.getParentDirectory(global_load_path) .. '\\maps'
+	if not octane.file.exists(maps_folder) then
+		octane.file.createDirectory(maps_folder)
+	end	
+	local image_files = octane.file.listDirectory(maps_folder, true, false, true, false)
+	local max_index = 0
+	for k, v in pairs(image_files) do
+		if v then
+			local file_name_without_ext = octane.file.getFileNameWithoutExtension(v)
+			local a, b = string.find(file_name_without_ext, "_")
+			local index = string.sub(file_name_without_ext, b + 1) + 0
+			if index > max_index then
+				max_index = index;
+			end
+		end
+	end
+	local parent_dir_path = octane.file.getParentDirectory(source_path)
+	local ext_name = octane.file.getFileExtension(source_path)
+	if parent_dir_path ~= maps_folder then
+		local target_file_path = maps_folder .. "\\image_" .. max_index + 1 .. ext_name
+		call_dll_exprot_function(source_path, target_file_path)
+	end
+	return 'maps\\image_' .. max_index+1 .. ext_name
+end
+
 function process_node_properties(node_properties)
     local str = '<node id=\'' .. node_properties["id"] .. '\' type=\'' .. node_properties["type"] .. '\' name=\'' .. node_properties["name"] .. '\' position=\'' .. node_properties["position"][1] .. ' ' .. node_properties["position"][2] .. '\'>'
     print("process_node_properties: ", str)
@@ -330,6 +356,8 @@ function get_pin_info(node, pin_name)
 					local pin_node_attribute_type = attribute_info["type"]
 					if pin_node_attributes_name == "filename" then
 						pic_node_attr_value = connected_node:getAttributeIx(l)
+						-- 调整路径信息
+						pic_node_attr_value = change_file_path(pic_node_attr_value)
 						break
 					end
 				end
@@ -432,6 +460,8 @@ function get_all(root_node_name)
 					local attribute_info = v:getAttributeInfoIx(z)
 					if octane.apiinfo.getAttributeName(attribute_info['id']) == 'filename' then
 						local file_name = v:getAttributeIx(z)
+						-- 调整路径信息
+						file_name = change_file_path(file_name)
 						node_attr_table[z] = {
 							name = "filename",
 							type = attribute_info["type"],
@@ -479,7 +509,13 @@ function get_all(root_node_name)
 end
 
 --print_r(inner_data_structure)
-get_all('0003f432cc7311e49ec700163e021ee1')
-print(luatab2ocs(inner_data_structure))
+-- get_all('0003f432cc7311e49ec700163e021ee1')
+-- print(luatab2ocs(inner_data_structure))
 -- print(type((inner_data_structure["graph"]["node"])))
 -- print_r(inner_data_structure)
+function FinalSave(item_ocs_path, model_no)
+	get_all(model_no)
+	ocs_file = io.open(item_ocs_path, "w")
+	ocs_file:write(luatab2ocs(inner_data_structure))
+	ocs_file:close()	
+end
